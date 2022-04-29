@@ -15,6 +15,7 @@ const Input = forwardRef((props, ref) => {
       name={name}
       placeholder={placeholder}
       id={id}
+      title={placeholder}
     />
   );
 });
