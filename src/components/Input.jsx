@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import cn from 'classnames';
 
 const Input = forwardRef((props, ref) => {
-  const { className, type = 'text', name, id, placeholder } = props;
+  const { className, type = 'text', name, id, placeholder, min } = props;
 
   return (
     <input
@@ -12,6 +12,7 @@ const Input = forwardRef((props, ref) => {
         className
       )}
       type={type}
+      min={min}
       name={name}
       placeholder={placeholder}
       id={id}

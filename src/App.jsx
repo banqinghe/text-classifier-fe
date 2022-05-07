@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { IconText } from './icons';
+import { IconText, IconSpinner } from './icons';
 import Input from './components/Input';
 import RadioButtonGroup from './components/RadioButtonGroup';
 import { getRandom } from './utils';
 import cn from 'classnames';
 import randomWords from 'random-words';
+import message from './components/Message';
 
 const buttonDefaultClass =
   'px-4 py-1 border hover:bg-light-300 active:bg-light-600';
@@ -30,7 +31,7 @@ function CategoryWordCard(props) {
 function HighFrequencyWordSet(props) {
   const { wordGroup } = props;
   return (
-    <div className="p-4 bg-white shadow-sm">
+    <div className="p-4 bg-white shadow-sm max-h-[60vh] overflow-auto">
       <div className="flex items-center gap-4 mb-3">
         <h2 className="inline-block text-base px-4 py-1.5 bg-light-200 rounded">
           高频词汇
@@ -49,7 +50,7 @@ function HighFrequencyWordSet(props) {
 function WordSet(props) {
   const { title, words } = props;
   return (
-    <section className="bg-white p-3 shadow-sm">
+    <section className="bg-white p-3 shadow-sm max-h-[50vh] overflow-auto">
       <h2 className="inline-block text-base px-4 py-1.5 mb-3 bg-light-200 rounded">
         {title}
       </h2>
@@ -78,41 +79,76 @@ export default function App() {
     tripleWords: [],
   });
   const [dimensionReduction, setDimensionReduction] = useState(false);
-
   const [precision, setPrecision] = useState(-1);
+  const [waiting, setWaiting] = useState(false);
 
   const handlePreProcess = () => {
-    // console.log(filepathRef.current.value);
-    // console.log(articleNumRef.current.value);
-    // console.log(categoryNumRef.current.value);
-    // console.log(dimensionReduction);
-    setWords({
-      singleWords: Array.from(
-        { length: categoryNumRef.current.value || 3 },
-        () => {
-          return {
-            name: randomWords(),
-            words: Array.from(
-              { length: getRandom(15, 30) },
-              () => `${randomWords()}`
-            ),
-          };
-        }
-      ),
-      // singleWords: randomWords({ min: 15, max: 30 }),
-      doubleWords: Array.from(
-        { length: getRandom(15, 30) },
-        () => `${randomWords()}${randomWords()}`
-      ),
-      tripleWords: Array.from(
-        { length: getRandom(15, 30) },
-        () => `${randomWords()}${randomWords()}${randomWords()}`
-      ),
-    });
+    const params = new URLSearchParams();
+    if (
+      !(
+        filepathRef.current.value &&
+        articleNumRef.current.value &&
+        categoryNumRef.current.value
+      )
+    ) {
+      message('信息未填写完整');
+      return;
+    }
+    params.append('filePath', filepathRef.current.value);
+    params.append('fileNumber', articleNumRef.current.value);
+    params.append('categoryNumber', categoryNumRef.current.value);
+    params.append('dimensionReduction', dimensionReduction);
+    // fetch('http://localhost:8080/preProcess?' + params)
+    //   .then((res) => res.json())
+    //   .then((res) => {
+    //     if (res.code !== 200) {
+    //       console.error('Failed to fetch');
+    //       return;
+    //     }
+    //     const data = JSON.parse(res.data);
+    //     setWords({
+    //       singleWords: data.Keywords.map((item, index) => {
+    //         return {
+    //           name: '类别 ' + (index + 1),
+    //           words: item,
+    //         };
+    //       }),
+    //       doubleWords: data['2-gram'],
+    //       tripleWords: data['3-gram'],
+    //     });
+    //   });
+    setWaiting(true);
+    setTimeout(() => {
+      message('处理完成');
+      setWaiting(false);
+      setWords({
+        singleWords: Array.from(
+          { length: categoryNumRef.current.value || 3 },
+          () => {
+            return {
+              name: randomWords(),
+              words: Array.from(
+                { length: getRandom(15, 30) },
+                () => `${randomWords()}`
+              ),
+            };
+          }
+        ),
+        // singleWords: randomWords({ min: 15, max: 30 }),
+        doubleWords: Array.from(
+          { length: getRandom(15, 30) },
+          () => `${randomWords()}${randomWords()}`
+        ),
+        tripleWords: Array.from(
+          { length: getRandom(15, 30) },
+          () => `${randomWords()}${randomWords()}${randomWords()}`
+        ),
+      });
+    }, 2000);
   };
 
   const handleClassifier = () => {
-    console.log(setPrecision(Math.random()));
+    setPrecision(Math.random());
   };
 
   const handleDimensionChange = (e) => {
@@ -143,7 +179,7 @@ export default function App() {
                 placeholder="文章数"
                 className="min-w-0 pr-0"
                 type="number"
-                min="0"
+                min="1"
                 id="articleNum"
               />
               <Input
@@ -151,7 +187,7 @@ export default function App() {
                 placeholder="类别数"
                 className="min-w-0 pr-0"
                 type="number"
-                min="0"
+                min="1"
                 id="classNum"
               />
             </div>
@@ -168,7 +204,11 @@ export default function App() {
           />
 
           <button
-            className={cn(buttonDefaultClass, 'w-full')}
+            className={cn(buttonDefaultClass, 'w-full', {
+              'bg-gray-200 opacity-50 hover:bg-gray-200 active:bg-gray-200':
+                waiting,
+            })}
+            disabled={waiting}
             onClick={handlePreProcess}
           >
             预处理
@@ -189,7 +229,10 @@ export default function App() {
           )}
         </aside>
 
-        <main className="flex-1 pb-2">
+        <main
+          className="relative flex-1 pb-2 overflow-hidden"
+          style={{ height: waiting ? 'calc(100vh - 54px)' : undefined }}
+        >
           <div className="space-y-3">
             <HighFrequencyWordSet wordGroup={words.singleWords} />
             <div className="grid grid-cols-2 gap-3">
@@ -197,6 +240,14 @@ export default function App() {
               <WordSet title="三元词" words={words.tripleWords} />
             </div>
           </div>
+          {waiting && (
+            <div className="absolute top-0 bottom-0 left-0 right-0 flex justify-center items-center bg-white bg-opacity-80 backdrop-filter backdrop-blur">
+              <div className="flex flex-col items-center transform -translate-y-8">
+                <div className="text-lg mb-4 text-center">处理中 . . .</div>
+                <IconSpinner className="text-3xl animate-spin animate-duration-[2s] text-gray-600" />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
