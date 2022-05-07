@@ -79,8 +79,9 @@ export default function App() {
     tripleWords: [],
   });
   const [dimensionReduction, setDimensionReduction] = useState(false);
-  const [precision, setPrecision] = useState(-1);
   const [waiting, setWaiting] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const handlePreProcess = () => {
     const params = new URLSearchParams();
@@ -98,57 +99,93 @@ export default function App() {
     params.append('fileNumber', articleNumRef.current.value);
     params.append('categoryNumber', categoryNumRef.current.value);
     params.append('dimensionReduction', dimensionReduction);
-    // fetch('http://localhost:8080/preProcess?' + params)
-    //   .then((res) => res.json())
-    //   .then((res) => {
-    //     if (res.code !== 200) {
-    //       console.error('Failed to fetch');
-    //       return;
-    //     }
-    //     const data = JSON.parse(res.data);
-    //     setWords({
-    //       singleWords: data.Keywords.map((item, index) => {
-    //         return {
-    //           name: '类别 ' + (index + 1),
-    //           words: item,
-    //         };
-    //       }),
-    //       doubleWords: data['2-gram'],
-    //       tripleWords: data['3-gram'],
-    //     });
-    //   });
     setWaiting(true);
-    setTimeout(() => {
-      message('处理完成');
-      setWaiting(false);
-      setWords({
-        singleWords: Array.from(
-          { length: categoryNumRef.current.value || 3 },
-          () => {
+    fetch('http://localhost:8080/preProcess?' + params)
+      .then((res) => res.json())
+      .then((res) => {
+        setWaiting(false);
+        if (res.code !== 200) {
+          console.error('Failed to fetch');
+          message('处理失败');
+          return;
+        }
+        message('处理完成');
+        const data = JSON.parse(res.data);
+        setWords({
+          singleWords: data.Keywords.map((item, index) => {
             return {
-              name: randomWords(),
-              words: Array.from(
-                { length: getRandom(15, 30) },
-                () => `${randomWords()}`
-              ),
+              name: '类别 ' + (index + 1),
+              words: item,
             };
-          }
-        ),
-        // singleWords: randomWords({ min: 15, max: 30 }),
-        doubleWords: Array.from(
-          { length: getRandom(15, 30) },
-          () => `${randomWords()}${randomWords()}`
-        ),
-        tripleWords: Array.from(
-          { length: getRandom(15, 30) },
-          () => `${randomWords()}${randomWords()}${randomWords()}`
-        ),
+          }),
+          doubleWords: data['2-gram'],
+          tripleWords: data['3-gram'],
+        });
       });
-    }, 2000);
+    // setWaiting(true);
+    // setTimeout(() => {
+    //   message('处理完成');
+    //   setWaiting(false);
+    //   setWords({
+    //     singleWords: Array.from(
+    //       { length: categoryNumRef.current.value || 3 },
+    //       () => {
+    //         return {
+    //           name: randomWords(),
+    //           words: Array.from(
+    //             { length: getRandom(15, 30) },
+    //             () => `${randomWords()}`
+    //           ),
+    //         };
+    //       }
+    //     ),
+    //     // singleWords: randomWords({ min: 15, max: 30 }),
+    //     doubleWords: Array.from(
+    //       { length: getRandom(15, 30) },
+    //       () => `${randomWords()}${randomWords()}`
+    //     ),
+    //     tripleWords: Array.from(
+    //       { length: getRandom(15, 30) },
+    //       () => `${randomWords()}${randomWords()}${randomWords()}`
+    //     ),
+    //   });
+    // }, 2000);
   };
 
-  const handleClassifier = () => {
-    setPrecision(Math.random());
+  const handleTrain = () => {
+    // setPrecision(Math.random());
+    setIsTraining(true);
+    fetch('http://localhost:8000/gcForest/train')
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.code === 200) {
+          message('训练成功');
+          return;
+        }
+        message('训练失败');
+      })
+      .catch(() => {
+        message('训练失败');
+      })
+      .finally(() => {
+        setIsTraining(false);
+      });
+  };
+
+  const handleTest = () => {
+    fetch('http://127.0.0.1:8000/gcForest/test')
+      .then((res) => res.json())
+      .then((res) => {
+        console.log(res);
+        setTestResult(res);
+        message('测试成功');
+      })
+      .catch(() => {
+        message('测试失败');
+      })
+      .finally(() => {
+        setIsTraining(false);
+      });
   };
 
   const handleDimensionChange = (e) => {
@@ -215,16 +252,51 @@ export default function App() {
           </button>
 
           <button
-            className={cn(buttonDefaultClass, 'w-full')}
-            onClick={handleClassifier}
+            className={cn(
+              buttonDefaultClass,
+              'w-full flex gap-2 items-center justify-center',
+              {
+                'opacity-50 cursor-wait': isTraining,
+              }
+            )}
+            onClick={handleTrain}
+            disabled={isTraining}
           >
-            分类
+            <IconSpinner
+              className={cn(
+                'text-sm animate-spin animate-duration-[2s] text-gray-600',
+                {
+                  block: isTraining,
+                  hidden: !isTraining,
+                }
+              )}
+            />
+            <span>训练</span>
           </button>
-          {precision > 0 && (
-            <div>
-              <p className="px-4 py-2 mt-4 bg-light-100">
+          <button
+            className={cn(buttonDefaultClass, 'w-full')}
+            onClick={handleTest}
+          >
+            测试
+          </button>
+          {testResult && (
+            <div
+              className="px-4 py-2 mt-4 bg-light-100"
+              style={{ fontFamily: 'Consolas' }}
+            >
+              {Object.entries(testResult).map(([title, value], index) => (
+                <div>
+                  <span className="inline-block w-22">{title}:</span>
+                  <span>
+                    {index === 3
+                      ? Number(value).toFixed(2) + '%'
+                      : Number(value).toFixed(6)}
+                  </span>
+                </div>
+              ))}
+              {/* <p className="px-4 py-2 mt-4 bg-light-100">
                 精确度：{precision.toFixed(6)}
-              </p>
+              </p> */}
             </div>
           )}
         </aside>
