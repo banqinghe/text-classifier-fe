@@ -79,6 +79,7 @@ export default function App() {
     tripleWords: [],
   });
   const [dimensionReduction, setDimensionReduction] = useState(false);
+  const [precision, setPrecision] = useState(-1);
   const [waiting, setWaiting] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -99,6 +100,12 @@ export default function App() {
     params.append('fileNumber', articleNumRef.current.value);
     params.append('categoryNumber', categoryNumRef.current.value);
     params.append('dimensionReduction', dimensionReduction);
+    if (dimensionReduction) {
+      params.append(
+        'reductionNumber',
+        Number(document.getElementById('reductionNumber').value)
+      );
+    }
     setWaiting(true);
     fetch('http://localhost:8080/preProcess?' + params)
       .then((res) => res.json())
@@ -228,6 +235,15 @@ export default function App() {
                 id="classNum"
               />
             </div>
+
+            {dimensionReduction && (
+              <Input
+                id="reductionNumber"
+                type="number"
+                placeholder="词频阈值"
+                className="w-full"
+              />
+            )}
           </div>
 
           <RadioButtonGroup
@@ -273,6 +289,7 @@ export default function App() {
             />
             <span>训练</span>
           </button>
+
           <button
             className={cn(buttonDefaultClass, 'w-full')}
             onClick={handleTest}
